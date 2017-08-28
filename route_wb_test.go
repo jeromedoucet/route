@@ -99,7 +99,7 @@ func TestRegisterHandlerWithEmptyPath(t *testing.T) {
 	// given
 	defer func() {
 		if r := recover(); r != nil {
-			t.Log("successfuly caught the router panic")
+			t.Log("successfully caught the router panic")
 		}
 	}()
 	f := func(http.ResponseWriter, *http.Request) {}
@@ -119,7 +119,7 @@ func TestRegisterHandlerWithNilHandler(t *testing.T) {
 	// given
 	defer func() {
 		if r := recover(); r != nil {
-			t.Log("successfuly caught the router panic")
+			t.Log("successfully caught the router panic")
 		}
 	}()
 	// at the same tree level, dymanic path value has to be considered as the same resource
@@ -203,7 +203,7 @@ func TestRegisterHandlerWithConflictOnStaticPartOfPath(t *testing.T) {
 	// given
 	defer func() {
 		if r := recover(); r != nil {
-			t.Log("successfuly caught the router panic")
+			t.Log("successfully caught the router panic")
 		}
 	}()
 	f1 := func(http.ResponseWriter, *http.Request) {}
@@ -226,7 +226,7 @@ func TestRegisterHandlerWithConflictOnDynamicPartOfPath(t *testing.T) {
 	// given
 	defer func() {
 		if r := recover(); r != nil {
-			t.Log("successfuly caught the router panic")
+			t.Log("successfully caught the router panic")
 		}
 	}()
 	f1 := func(http.ResponseWriter, *http.Request) {}
