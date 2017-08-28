@@ -11,22 +11,28 @@ type node struct {
 	children map[string]*node
 }
 
+// DynamicRouter is a simple http router
+//
+// Implements the http/Handler interface
 type DynamicRouter struct {
 	root map[string]*node
 }
 
+// NewDynamicRouter create a new DynamicRouter
 func NewDynamicRouter() *DynamicRouter {
 	r := new(DynamicRouter)
 	r.root = make(map[string]*node)
 	return r
 }
 
+// HandleFunc register a new Handler for a given pattern
 func (r *DynamicRouter) HandleFunc(pattern string, handler func(http.ResponseWriter, *http.Request)) {
 	r.registerHandler(SplitPath(pattern), handler)
 }
 
-// todo perf tests (gatling) + race condition tests
+// http/Handler implementation
 func (r *DynamicRouter) ServeHTTP(res http.ResponseWriter, req *http.Request) {
+	// todo perf tests (gatling) + race condition tests
 	// todo test me
 	n, err := r.findEndpoint(req)
 	if err != nil {
@@ -94,6 +100,8 @@ func (r *DynamicRouter) findEndpoint(req *http.Request) (n *node, err error) {
 	return parseTree(r.root, SplitPath(req.URL.Path))
 }
 
+// SplitPath is an utils function that will
+// split the path of a request.
 func SplitPath(path string) []string {
 	p := strings.TrimPrefix(path, "/")
 	return strings.Split(strings.TrimSuffix(p, "/"), "/")
@@ -117,7 +125,6 @@ func parseTree(children map[string]*node, path []string) (*node, error) {
 	}
 	if len(path) > 1 {
 		return parseTree(n.children, path[1:])
-	} else {
-		return n, nil
 	}
+	return n, nil
 }
