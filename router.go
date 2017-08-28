@@ -1,9 +1,9 @@
 package route
 
 import (
+	"errors"
 	"net/http"
 	"strings"
-	"errors"
 )
 
 type node struct {

@@ -1,10 +1,10 @@
 package route
 
 import (
-	"testing"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"testing"
 )
 
 func TestRegisterHandlerWithStaticRoute(t *testing.T) {
