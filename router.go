@@ -1,13 +1,14 @@
 package route
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
 )
 
 type node struct {
-	handler  func(http.ResponseWriter, *http.Request)
+	handler  func(context.Context, http.ResponseWriter, *http.Request)
 	children map[string]*node
 }
 
@@ -16,17 +17,19 @@ type node struct {
 // Implements the http/Handler interface
 type DynamicRouter struct {
 	root map[string]*node
+	ctx  context.Context
 }
 
 // NewDynamicRouter create a new DynamicRouter
 func NewDynamicRouter() *DynamicRouter {
 	r := new(DynamicRouter)
 	r.root = make(map[string]*node)
+	r.ctx = context.Background()
 	return r
 }
 
 // HandleFunc register a new Handler for a given pattern
-func (r *DynamicRouter) HandleFunc(pattern string, handler func(http.ResponseWriter, *http.Request)) {
+func (r *DynamicRouter) HandleFunc(pattern string, handler func(context.Context, http.ResponseWriter, *http.Request)) {
 	r.registerHandler(SplitPath(pattern), handler)
 }
 
@@ -40,11 +43,11 @@ func (r *DynamicRouter) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		res.WriteHeader(404)
 	} else if n.handler != nil {
 		// todo test that
-		n.handler(res, req)
+		n.handler(r.ctx, res, req)
 	}
 }
 
-func (r *DynamicRouter) registerHandler(paths []string, handler func(http.ResponseWriter, *http.Request)) {
+func (r *DynamicRouter) registerHandler(paths []string, handler func(context.Context, http.ResponseWriter, *http.Request)) {
 	// todo ajouter les verbes http
 	if handler == nil {
 		panic("handler cannot be nil")
