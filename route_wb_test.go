@@ -337,8 +337,3 @@ func BenchmarkFindEndpointOnDynamicRouteRoute(b *testing.B) {
 		}
 	})
 }
-
-// test unknown path
-// bench router !
-// doublon
-//

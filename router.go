@@ -7,8 +7,11 @@ import (
 	"strings"
 )
 
+// internal representation of a
+// routes path segment
 type node struct {
 	handler  func(context.Context, http.ResponseWriter, *http.Request)
+	filters  []HttpFilter
 	children map[string]*node
 }
 
@@ -20,6 +23,41 @@ type DynamicRouter struct {
 	ctx  context.Context
 }
 
+// functions that are executed before there corresponding handler.
+// if an error is returned, the pipe execution is stopped.
+// The filter MUST take care of status and body response.
+type HttpFilter func(http.ResponseWriter, *http.Request) bool
+
+// function type used by application code
+type Handler func(context.Context, http.ResponseWriter, *http.Request)
+
+// will wrap the response writer in order
+// to controle when the status code will be set in ResponseWriter.
+// this is necessary to force 500 status when application
+// code do panic, till only one call to WriteHeader is possible.
+//
+// this is an internal mechanism that should stay hidden
+// and must not interfere with application behavior
+type responseWrapper struct {
+	http.ResponseWriter
+	status int
+	body   []byte
+}
+
+func (w *responseWrapper) WriteHeader(code int) {
+	w.status = code
+}
+
+func (w *responseWrapper) Write(body []byte) (int, error) {
+	w.body = body
+	return len(body), nil
+}
+
+func (w *responseWrapper) flush() {
+	w.ResponseWriter.WriteHeader(w.status)
+	w.ResponseWriter.Write(w.body)
+}
+
 // NewDynamicRouter create a new DynamicRouter
 func NewDynamicRouter() *DynamicRouter {
 	r := new(DynamicRouter)
@@ -29,26 +67,40 @@ func NewDynamicRouter() *DynamicRouter {
 }
 
 // HandleFunc register a new Handler for a given pattern
-func (r *DynamicRouter) HandleFunc(pattern string, handler func(context.Context, http.ResponseWriter, *http.Request)) {
-	r.registerHandler(SplitPath(pattern), handler)
+func (r *DynamicRouter) HandleFunc(pattern string, handler Handler, filters ...HttpFilter) {
+	r.registerHandler(SplitPath(pattern), handler, filters...)
 }
 
 // http/Handler implementation
 func (r *DynamicRouter) ServeHTTP(res http.ResponseWriter, req *http.Request) {
-	// todo perf tests (gatling) + race condition tests
-	// todo test me
+	w := &responseWrapper{res, 200, []byte{}}
+	defer func() {
+		if r := recover(); r != nil {
+			// we dunno what's happened so, we set the
+			// status code to 500
+			w.WriteHeader(http.StatusInternalServerError)
+			w.flush()
+		}
+	}()
 	n, err := r.findEndpoint(req)
 	if err != nil {
-		// todo add a default handler
-		res.WriteHeader(404)
+		w.WriteHeader(http.StatusNotFound)
+		w.flush()
 	} else if n.handler != nil {
-		// todo test that
-		n.handler(r.ctx, res, req)
+		// we pass all filter in the right order. if one return false
+		// we return, assuming that everything has been written in response
+		for _, filter := range n.filters {
+			if !filter(w, req) {
+				w.flush()
+				return
+			}
+		}
+		n.handler(r.ctx, w, req)
+		w.flush()
 	}
 }
 
-func (r *DynamicRouter) registerHandler(paths []string, handler func(context.Context, http.ResponseWriter, *http.Request)) {
-	// todo ajouter les verbes http
+func (r *DynamicRouter) registerHandler(paths []string, handler Handler, filters ...HttpFilter) {
 	if handler == nil {
 		panic("handler cannot be nil")
 	} else if len(paths) < 1 {
@@ -95,6 +147,7 @@ func (r *DynamicRouter) registerHandler(paths []string, handler func(context.Con
 		panic("a handler is already registered for this path")
 	}
 	n.handler = handler
+	n.filters = filters
 }
 
 func (r *DynamicRouter) findEndpoint(req *http.Request) (n *node, err error) {
