@@ -11,6 +11,34 @@ import (
 	"github.com/jeromedoucet/route"
 )
 
+func TestHijack(t *testing.T) {
+	// given
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		_, ok := w.(http.Hijacker)
+		if !ok {
+			http.Error(w, "webserver doesn't support hijacking", http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("response"))
+	}
+	router := route.NewDynamicRouter()
+	router.HandleFunc("/tests", handler)
+	s := httptest.NewServer(router)
+	defer s.Close()
+
+	resp, err := http.Get(fmt.Sprintf("%s/tests", s.URL))
+
+	// then
+	if err != nil {
+		t.Fatalf("Expect to have no error, but got %s", err.Error())
+	}
+
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expect 200 return code.Got %d", resp.StatusCode)
+	}
+}
+
 func TestDynamicRoute200(t *testing.T) {
 	// given
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request) {

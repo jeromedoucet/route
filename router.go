@@ -31,6 +31,11 @@ type HttpFilter func(http.ResponseWriter, *http.Request) bool
 // function type used by application code
 type Handler func(context.Context, http.ResponseWriter, *http.Request)
 
+type response struct {
+	http.ResponseWriter
+	http.Hijacker
+}
+
 // will wrap the response writer in order
 // to controle when the status code will be set in ResponseWriter.
 // this is necessary to force 500 status when application
@@ -40,6 +45,7 @@ type Handler func(context.Context, http.ResponseWriter, *http.Request)
 // and must not interfere with application behavior
 type responseWrapper struct {
 	http.ResponseWriter
+	http.Hijacker
 	status int
 	body   []byte
 }
@@ -73,7 +79,11 @@ func (r *DynamicRouter) HandleFunc(pattern string, handler Handler, filters ...H
 
 // http/Handler implementation
 func (r *DynamicRouter) ServeHTTP(res http.ResponseWriter, req *http.Request) {
-	w := &responseWrapper{res, 200, []byte{}}
+	w := &responseWrapper{ResponseWriter: res, status: 200, body: []byte{}}
+	hj, ok := res.(http.Hijacker)
+	if ok {
+		w.Hijacker = hj
+	}
 	defer func() {
 		if r := recover(); r != nil {
 			// we dunno what's happened so, we set the
