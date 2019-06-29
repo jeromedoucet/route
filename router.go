@@ -4,7 +4,22 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"os"
+	"path"
+	"path/filepath"
 	"strings"
+)
+
+// FileServerMode allow to adapt some behavior of the file server.
+type FileServerMode string
+
+const (
+	// classic mode handle all requests considering that there is no routing in front end code.
+	// it behave like "classic" web app. When a resource is not found => 404
+	Classic FileServerMode = "classic"
+	// spa mode considers that all the routing is done in the browser. Some files other than index.html
+	// may be loaded, but if a request does not fit a file, the request is changed to serve `/` instead.
+	Spa FileServerMode = "spa"
 )
 
 // internal representation of a
@@ -15,12 +30,52 @@ type node struct {
 	children map[string]*node
 }
 
+type customFileServer struct {
+	root http.Dir
+	mode FileServerMode
+}
+
+func (fs *customFileServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	//if empty, set current directory
+	dir := string(fs.root)
+	if dir == "" {
+		dir = "."
+	}
+
+	//add prefix and clean
+	upath := r.URL.Path
+	if !strings.HasPrefix(upath, "/") {
+		upath = "/" + upath
+		r.URL.Path = upath
+	}
+	upath = path.Clean(upath)
+
+	//path to file
+	name := path.Join(dir, filepath.FromSlash(upath))
+
+	//check if file exists
+
+	f, err := os.Open(name)
+	if err != nil {
+		if os.IsNotExist(err) {
+			if fs.mode == Spa {
+				name = path.Join(dir, "/")
+			}
+		}
+	} else {
+		defer f.Close()
+	}
+
+	http.ServeFile(w, r, name)
+}
+
 // DynamicRouter is a simple http router
 //
 // Implements the http/Handler interface
 type DynamicRouter struct {
-	root map[string]*node
-	ctx  context.Context
+	root       map[string]*node
+	ctx        context.Context
+	fileServer *customFileServer
 }
 
 // functions that are executed before there corresponding handler.
@@ -72,6 +127,10 @@ func NewDynamicRouter() *DynamicRouter {
 	return r
 }
 
+func (r *DynamicRouter) ServeStaticAt(root string, mode FileServerMode) {
+	r.fileServer = &customFileServer{root: http.Dir(root), mode: mode}
+}
+
 // HandleFunc register a new Handler for a given pattern
 func (r *DynamicRouter) HandleFunc(pattern string, handler Handler, filters ...HttpFilter) {
 	r.registerHandler(SplitPath(pattern), handler, filters...)
@@ -94,7 +153,11 @@ func (r *DynamicRouter) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	}()
 	n, err := r.findEndpoint(req)
 	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
+		if r.fileServer == nil {
+			w.WriteHeader(http.StatusNotFound)
+		} else {
+			r.fileServer.ServeHTTP(w, req)
+		}
 		w.flush()
 	} else if n.handler != nil {
 		// we pass all filter in the right order. if one return false
