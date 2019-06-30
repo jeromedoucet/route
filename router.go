@@ -3,6 +3,8 @@ package route
 import (
 	"context"
 	"errors"
+	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"path"
@@ -79,6 +81,7 @@ func (fs *customFileServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	f, err := os.Open(name)
 	if err != nil {
 		if os.IsNotExist(err) {
+			log.Println(fmt.Sprintf("warn: file %s not found", name))
 			if fs.mode == Spa {
 				r.URL.Path = "/"
 			}
