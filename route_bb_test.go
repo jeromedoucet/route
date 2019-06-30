@@ -235,3 +235,27 @@ func TestServeStaticSpaRedirectWhenNotFound(t *testing.T) {
 		t.Fatalf("expect %s, but got %s", expectedContent, string(payloadResp))
 	}
 }
+
+func TestServeStaticDotProtection(t *testing.T) {
+	// given
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("response"))
+	}
+	router := route.NewDynamicRouter()
+	router.HandleFunc("/tests/:testId", handler)
+	router.ServeStaticAt("fixtures/", route.Classic)
+	s := httptest.NewServer(router)
+	defer s.Close()
+
+	resp, err := http.Get(fmt.Sprintf("%s/../some-protected-resources", s.URL))
+
+	// then
+	if err != nil {
+		t.Fatalf("Expect to have no error, but got %s", err.Error())
+	}
+
+	if resp.StatusCode != 400 {
+		t.Fatalf("Expect 400 return code.Got %d", resp.StatusCode)
+	}
+}
