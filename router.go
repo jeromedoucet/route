@@ -31,11 +31,32 @@ type node struct {
 }
 
 type customFileServer struct {
-	root http.Dir
-	mode FileServerMode
+	root    http.Dir
+	handler http.Handler
+	mode    FileServerMode
+}
+
+func containsDotDot(v string) bool {
+	if !strings.Contains(v, "..") {
+		return false
+	}
+	for _, ent := range strings.FieldsFunc(v, isSlashRune) {
+		if ent == ".." {
+			return true
+		}
+	}
+	return false
+}
+
+func isSlashRune(r rune) bool {
+	return r == '/' || r == '\\'
 }
 
 func (fs *customFileServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if containsDotDot(r.URL.Path) {
+		http.Error(w, "URL should not contain '/../' parts", http.StatusBadRequest)
+		return
+	}
 	//if empty, set current directory
 	dir := string(fs.root)
 	if dir == "" {
@@ -59,14 +80,16 @@ func (fs *customFileServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if os.IsNotExist(err) {
 			if fs.mode == Spa {
-				name = path.Join(dir, "/")
+				r.URL.Path = "/"
 			}
 		}
 	} else {
 		defer f.Close()
 	}
 
-	http.ServeFile(w, r, name)
+	fs.handler.ServeHTTP(w, r)
+
+	//http.ServeFile(w, r, name)
 }
 
 // DynamicRouter is a simple http router
@@ -128,7 +151,7 @@ func NewDynamicRouter() *DynamicRouter {
 }
 
 func (r *DynamicRouter) ServeStaticAt(root string, mode FileServerMode) {
-	r.fileServer = &customFileServer{root: http.Dir(root), mode: mode}
+	r.fileServer = &customFileServer{root: http.Dir(root), mode: mode, handler: http.FileServer(http.Dir(root))}
 }
 
 // HandleFunc register a new Handler for a given pattern
