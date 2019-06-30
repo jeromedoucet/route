@@ -174,10 +174,10 @@ func (r *DynamicRouter) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		if r.fileServer == nil {
 			w.WriteHeader(http.StatusNotFound)
+			w.flush()
 		} else {
-			r.fileServer.ServeHTTP(w, req)
+			r.fileServer.ServeHTTP(res, req)
 		}
-		w.flush()
 	} else if n.handler != nil {
 		// we pass all filter in the right order. if one return false
 		// we return, assuming that everything has been written in response
