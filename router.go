@@ -65,23 +65,16 @@ func (fs *customFileServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		dir = "."
 	}
 
-	//add prefix and clean
-	upath := r.URL.Path
-	if !strings.HasPrefix(upath, "/") {
-		upath = "/" + upath
-		r.URL.Path = upath
-	}
-	upath = path.Clean(upath)
+	upath := path.Clean(r.URL.Path)
 
 	//path to file
-	name := path.Join(dir, filepath.FromSlash(upath))
+	name := filepath.FromSlash(path.Join(dir, upath))
 
 	//check if file exists
-
 	f, err := os.Open(name)
 	if err != nil {
 		if os.IsNotExist(err) {
-			log.Println(fmt.Sprintf("warn: file %s not found", name))
+			log.Println(fmt.Sprintf("warn: file %s not found for computed path %s on query %s", name, upath, r.URL.Path))
 			if fs.mode == Spa {
 				r.URL.Path = "/"
 			}
