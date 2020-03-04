@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jeromedoucet/route"
+	"github.com/squarescale/route"
 )
 
 func TestHijack(t *testing.T) {

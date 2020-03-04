@@ -1,5 +1,3 @@
-module github.com/jeromedoucet/route
+module github.com/squarescale/route
 
-go 1.12
-
-require github.com/jeromedoucet/training v0.0.0-20190630102117-68cc97207e9a // indirect
+go 1.13
