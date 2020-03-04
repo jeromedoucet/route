@@ -105,6 +105,14 @@ type HttpFilter func(http.ResponseWriter, *http.Request) bool
 // function type used by application code
 type Handler func(context.Context, http.ResponseWriter, *http.Request)
 
+// WrapHttpHandleFunc make easier to integrate route with existing
+// code by transforming a standart httpHandleFunc into a route.Handler
+func WrapHttpHandleFunc(f func(w http.ResponseWriter, r *http.Request)) Handler {
+	return func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		f(w, r)
+	}
+}
+
 type response struct {
 	http.ResponseWriter
 	http.Hijacker
