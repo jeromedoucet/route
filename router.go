@@ -113,11 +113,6 @@ func WrapHttpHandleFunc(f func(w http.ResponseWriter, r *http.Request)) Handler 
 	}
 }
 
-type response struct {
-	http.ResponseWriter
-	http.Hijacker
-}
-
 // will wrap the response writer in order
 // to controle when the status code will be set in ResponseWriter.
 // this is necessary to force 500 status when application
@@ -139,6 +134,14 @@ func (w *responseWrapper) WriteHeader(code int) {
 func (w *responseWrapper) Write(body []byte) (int, error) {
 	w.body = body
 	return len(body), nil
+}
+
+func (w *responseWrapper) Flush() {
+	if f, ok := w.ResponseWriter.(http.Flusher); ok {
+		w.ResponseWriter.Write(w.body)
+		w.body = nil
+		f.Flush()
+	}
 }
 
 func (w *responseWrapper) flush() {
